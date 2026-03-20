@@ -8,6 +8,7 @@ set -euo pipefail
 #   ./run.sh rebuild  # run `npm run build` only
 #   ./run.sh test     # run `npm test`
 #   ./run.sh open     # open http://localhost:8000 (if xdg-open available)
+#   ./run.sh package  # build bundle and create mastermind-static.zip for deployment
 
 PORT=${PORT:-8000}
 CMD=${1:-start}
@@ -78,8 +79,13 @@ case "$CMD" in
       echo "Open your browser at http://localhost:${PORT}"
     fi
     ;;
+  package)
+    ensure_node_modules
+    echo "Building static package..."
+    npm run package
+    ;;
   *)
-    echo "Usage: $0 [start|dev|rebuild|test|open]"
+    echo "Usage: $0 [start|dev|rebuild|test|open|package]"
     exit 1
     ;;
 esac
