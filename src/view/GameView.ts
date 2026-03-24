@@ -1,14 +1,17 @@
-import { Color, COLORS, CODE_LENGTH, MAX_ATTEMPTS, GameState } from '../types';
+import { Color, CLASSIC_CONFIG, GameConfig, GameState } from '../types';
 
 export class GameView {
   private root: HTMLElement;
+  private config: GameConfig;
   private selectedColors: (Color | null)[];
   private guessSubmitCallback: ((guess: Color[]) => void) | null = null;
   private newGameCallback: (() => void) | null = null;
+  private modeSwitchCallback: (() => void) | null = null;
 
-  constructor(root: HTMLElement) {
+  constructor(root: HTMLElement, config: GameConfig = CLASSIC_CONFIG) {
     this.root = root;
-    this.selectedColors = Array(CODE_LENGTH).fill(null);
+    this.config = config;
+    this.selectedColors = Array(config.codeLength).fill(null);
   }
 
   onGuessSubmit(callback: (guess: Color[]) => void): void {
@@ -19,8 +22,12 @@ export class GameView {
     this.newGameCallback = callback;
   }
 
+  onModeSwitch(callback: () => void): void {
+    this.modeSwitchCallback = callback;
+  }
+
   render(state: GameState): void {
-    this.selectedColors = Array(CODE_LENGTH).fill(null);
+    this.selectedColors = Array(this.config.codeLength).fill(null);
     this.root.innerHTML = '';
 
     const container = document.createElement('div');
@@ -28,7 +35,7 @@ export class GameView {
 
     const title = document.createElement('h1');
     title.className = 'title';
-    title.textContent = 'Mastermind';
+    title.textContent = this.config.mode === 'super' ? 'Super Mastermind' : 'Mastermind';
     container.appendChild(title);
 
     // Status message
@@ -46,7 +53,7 @@ export class GameView {
     // Info bar
     const info = document.createElement('div');
     info.className = 'info-bar';
-    const attemptsLeft = MAX_ATTEMPTS - state.guesses.length;
+    const attemptsLeft = this.config.maxAttempts - state.guesses.length;
     info.textContent = state.status === 'playing'
       ? `Attempts remaining: ${attemptsLeft}`
       : `Total guesses: ${state.guesses.length}`;
@@ -71,7 +78,7 @@ export class GameView {
 
     // Empty placeholder rows
     const filledRows = state.guesses.length + (state.status === 'playing' ? 1 : 0);
-    for (let i = filledRows; i < MAX_ATTEMPTS; i++) {
+    for (let i = filledRows; i < this.config.maxAttempts; i++) {
       const emptyRow = this.createEmptyRow();
       board.appendChild(emptyRow);
     }
@@ -109,6 +116,17 @@ export class GameView {
     });
     container.appendChild(newGameBtn);
 
+    // Mode switch button
+    const modeBtn = document.createElement('button');
+    modeBtn.className = 'btn btn-mode';
+    modeBtn.textContent = this.config.mode === 'classic'
+      ? 'Switch to Super Mastermind'
+      : 'Switch to Classic Mastermind';
+    modeBtn.addEventListener('click', () => {
+      if (this.modeSwitchCallback) this.modeSwitchCallback();
+    });
+    container.appendChild(modeBtn);
+
     this.root.appendChild(container);
   }
 
@@ -126,7 +144,9 @@ export class GameView {
     row.appendChild(pegsContainer);
 
     const feedbackContainer = document.createElement('div');
-    feedbackContainer.className = 'feedback-container';
+    feedbackContainer.className = this.config.mode === 'super'
+      ? 'feedback-container feedback-inline'
+      : 'feedback-container';
     // Black pegs first
     for (let i = 0; i < feedback.blacks; i++) {
       const fp = document.createElement('span');
@@ -140,7 +160,7 @@ export class GameView {
       feedbackContainer.appendChild(fp);
     }
     // Empty pegs
-    const empty = CODE_LENGTH - feedback.blacks - feedback.whites;
+    const empty = this.config.codeLength - feedback.blacks - feedback.whites;
     for (let i = 0; i < empty; i++) {
       const fp = document.createElement('span');
       fp.className = 'feedback-peg feedback-empty';
@@ -158,7 +178,7 @@ export class GameView {
     const pegsContainer = document.createElement('div');
     pegsContainer.className = 'pegs-container';
 
-    for (let i = 0; i < CODE_LENGTH; i++) {
+    for (let i = 0; i < this.config.codeLength; i++) {
       const slot = document.createElement('span');
       slot.className = 'peg peg-empty peg-slot';
       slot.dataset.slot = String(i);
@@ -168,8 +188,10 @@ export class GameView {
     row.appendChild(pegsContainer);
 
     const feedbackContainer = document.createElement('div');
-    feedbackContainer.className = 'feedback-container';
-    for (let i = 0; i < CODE_LENGTH; i++) {
+    feedbackContainer.className = this.config.mode === 'super'
+      ? 'feedback-container feedback-inline'
+      : 'feedback-container';
+    for (let i = 0; i < this.config.codeLength; i++) {
       const fp = document.createElement('span');
       fp.className = 'feedback-peg feedback-empty';
       feedbackContainer.appendChild(fp);
@@ -185,7 +207,7 @@ export class GameView {
 
     const pegsContainer = document.createElement('div');
     pegsContainer.className = 'pegs-container';
-    for (let i = 0; i < CODE_LENGTH; i++) {
+    for (let i = 0; i < this.config.codeLength; i++) {
       const peg = document.createElement('span');
       peg.className = 'peg peg-empty';
       pegsContainer.appendChild(peg);
@@ -193,8 +215,10 @@ export class GameView {
     row.appendChild(pegsContainer);
 
     const feedbackContainer = document.createElement('div');
-    feedbackContainer.className = 'feedback-container';
-    for (let i = 0; i < CODE_LENGTH; i++) {
+    feedbackContainer.className = this.config.mode === 'super'
+      ? 'feedback-container feedback-inline'
+      : 'feedback-container';
+    for (let i = 0; i < this.config.codeLength; i++) {
       const fp = document.createElement('span');
       fp.className = 'feedback-peg feedback-empty';
       feedbackContainer.appendChild(fp);
@@ -216,7 +240,7 @@ export class GameView {
     const colorsContainer = document.createElement('div');
     colorsContainer.className = 'palette-colors';
 
-    COLORS.forEach(color => {
+    this.config.colors.forEach(color => {
       const btn = document.createElement('button');
       btn.className = `palette-btn peg peg-${color}`;
       btn.dataset.color = color;
@@ -257,7 +281,7 @@ export class GameView {
     const filled = this.selectedColors.filter((c): c is Color => c !== null);
     this.selectedColors = [
       ...filled,
-      ...Array(CODE_LENGTH - filled.length).fill(null),
+      ...Array(this.config.codeLength - filled.length).fill(null),
     ];
 
     // Re-render slots
@@ -270,7 +294,7 @@ export class GameView {
 
   private submitGuess(): void {
     if (this.selectedColors.includes(null)) {
-      alert('Please select all 4 colors before submitting.');
+      alert(`Please select all ${this.config.codeLength} colors before submitting.`);
       return;
     }
     if (this.guessSubmitCallback) {

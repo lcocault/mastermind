@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import { GameView } from '../../src/view/GameView';
-import { GameState, Color } from '../../src/types';
+import { GameState, Color, SUPER_CONFIG } from '../../src/types';
 
 function makeState(overrides: Partial<GameState> = {}): GameState {
   return {
@@ -186,6 +186,109 @@ describe('GameView', () => {
 
       expect(callback).not.toHaveBeenCalled();
       alertMock.mockRestore();
+    });
+  });
+
+  describe('mode switch button', () => {
+    it('shows a mode switch button in classic mode', () => {
+      view.render(makeState());
+      const modeBtn = root.querySelector('.btn-mode');
+      expect(modeBtn).not.toBeNull();
+      expect(modeBtn!.textContent).toContain('Super Mastermind');
+    });
+
+    it('triggers mode switch callback when clicked', () => {
+      const callback = jest.fn();
+      view.onModeSwitch(callback);
+      view.render(makeState());
+      root.querySelector<HTMLElement>('.btn-mode')!.click();
+      expect(callback).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Super MasterMind mode', () => {
+    let superRoot: HTMLElement;
+    let superView: GameView;
+
+    beforeEach(() => {
+      superRoot = document.createElement('div');
+      document.body.appendChild(superRoot);
+      superView = new GameView(superRoot, SUPER_CONFIG);
+    });
+
+    afterEach(() => {
+      document.body.removeChild(superRoot);
+    });
+
+    it('shows "Super Mastermind" as the title', () => {
+      superView.render(makeState());
+      const title = superRoot.querySelector('.title');
+      expect(title!.textContent).toBe('Super Mastermind');
+    });
+
+    it('shows 8 color buttons in the palette', () => {
+      superView.render(makeState());
+      const colorBtns = superRoot.querySelectorAll('.palette-btn');
+      expect(colorBtns.length).toBe(8);
+    });
+
+    it('shows pink and teal color buttons', () => {
+      superView.render(makeState());
+      expect(superRoot.querySelector('[data-color="pink"]')).not.toBeNull();
+      expect(superRoot.querySelector('[data-color="teal"]')).not.toBeNull();
+    });
+
+    it('creates 5 peg slots in the active row', () => {
+      superView.render(makeState());
+      const slots = superRoot.querySelectorAll('.peg-slot');
+      expect(slots.length).toBe(5);
+    });
+
+    it('uses inline feedback layout for super mode', () => {
+      const state = makeState({
+        guesses: [
+          {
+            guess: ['red', 'blue', 'green', 'yellow', 'orange'],
+            feedback: { blacks: 2, whites: 1 },
+          },
+        ],
+      });
+      superView.render(state);
+      const feedbackContainers = superRoot.querySelectorAll('.feedback-container');
+      // The first row (past guess) should have the inline class
+      expect(feedbackContainers[0].classList.contains('feedback-inline')).toBe(true);
+    });
+
+    it('shows switch-to-classic button in super mode', () => {
+      superView.render(makeState());
+      const modeBtn = superRoot.querySelector('.btn-mode');
+      expect(modeBtn).not.toBeNull();
+      expect(modeBtn!.textContent).toContain('Classic Mastermind');
+    });
+
+    it('fills 5 slots in order for super mode', () => {
+      superView.render(makeState());
+      const colors: Color[] = ['red', 'blue', 'green', 'yellow', 'orange'];
+      colors.forEach(c => {
+        superRoot.querySelector<HTMLElement>(`[data-color="${c}"]`)!.click();
+      });
+      for (let i = 0; i < 5; i++) {
+        const slot = superRoot.querySelector<HTMLElement>(`.peg-slot[data-slot="${i}"]`);
+        expect(slot!.className).toContain(`peg-${colors[i]}`);
+      }
+    });
+
+    it('submits a 5-color guess', () => {
+      const callback = jest.fn();
+      superView.onGuessSubmit(callback);
+      superView.render(makeState());
+
+      const colors: Color[] = ['red', 'blue', 'green', 'yellow', 'orange'];
+      colors.forEach(c => {
+        superRoot.querySelector<HTMLElement>(`[data-color="${c}"]`)!.click();
+      });
+      superRoot.querySelector<HTMLElement>('.btn-submit')!.click();
+      expect(callback).toHaveBeenCalledWith(['red', 'blue', 'green', 'yellow', 'orange']);
     });
   });
 });

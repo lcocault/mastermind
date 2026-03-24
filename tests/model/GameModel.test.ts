@@ -1,5 +1,5 @@
 import { GameModel } from '../../src/model/GameModel';
-import { Color, CODE_LENGTH, MAX_ATTEMPTS } from '../../src/types';
+import { Color, CODE_LENGTH, MAX_ATTEMPTS, SUPER_CONFIG } from '../../src/types';
 
 describe('GameModel', () => {
   describe('constructor', () => {
@@ -187,6 +187,53 @@ describe('GameModel', () => {
       // After reset, new secret: all blue (randomFn now returns 1/6 → index 1)
       model.makeGuess(['blue', 'blue', 'blue', 'blue']);
       expect(model.getState().status).toBe('won');
+    });
+  });
+
+  describe('Super MasterMind mode', () => {
+    it('generates a code of length 5 in super mode', () => {
+      let callCount = 0;
+      const fixedRandom = () => { callCount++; return 0; };
+      const model = new GameModel(fixedRandom, SUPER_CONFIG);
+      expect(callCount).toBe(5);
+      const state = model.getState();
+      expect(state.status).toBe('playing');
+      expect(state.secretCode).toBeNull();
+    });
+
+    it('uses only super-mode colors when generating code', () => {
+      const model = new GameModel(() => 0.99, SUPER_CONFIG);
+      // randomFn returns 0.99 → last color in SUPER_CONFIG.colors (teal)
+      model.makeGuess(['teal', 'teal', 'teal', 'teal', 'teal']);
+      expect(model.getState().status).toBe('won');
+    });
+
+    it('requires a 5-color guess in super mode', () => {
+      const model = new GameModel(() => 0, SUPER_CONFIG);
+      expect(() => model.makeGuess(['red', 'red', 'red', 'red'] as Color[])).toThrow(
+        'Guess must be exactly 5 colors'
+      );
+    });
+
+    it('sets status to won when all 5 blacks', () => {
+      const model = new GameModel(() => 0, SUPER_CONFIG);
+      model.makeGuess(['red', 'red', 'red', 'red', 'red']);
+      expect(model.getState().status).toBe('won');
+    });
+
+    it('sets status to lost after 10 incorrect guesses in super mode', () => {
+      const model = new GameModel(() => 0, SUPER_CONFIG); // secret: all red
+      for (let i = 0; i < MAX_ATTEMPTS; i++) {
+        model.makeGuess(['blue', 'blue', 'blue', 'blue', 'blue']);
+      }
+      expect(model.getState().status).toBe('lost');
+    });
+
+    it('evaluates 5-color guess correctly', () => {
+      const model = new GameModel();
+      const secret: Color[] = ['red', 'blue', 'green', 'yellow', 'orange'];
+      const guess: Color[] = ['red', 'blue', 'green', 'yellow', 'orange'];
+      expect(model.evaluateGuess(guess, secret)).toEqual({ blacks: 5, whites: 0 });
     });
   });
 });

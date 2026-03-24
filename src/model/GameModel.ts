@@ -1,21 +1,23 @@
-import { Color, COLORS, CODE_LENGTH, MAX_ATTEMPTS, Feedback, GuessRecord, GameStatus, GameState } from '../types';
+import { Color, CLASSIC_CONFIG, GameConfig, Feedback, GuessRecord, GameStatus, GameState } from '../types';
 
 export class GameModel {
   private secretCode: Color[];
   private guesses: GuessRecord[];
   private status: GameStatus;
   private randomFn: () => number;
+  private config: GameConfig;
 
-  constructor(randomFn: () => number = Math.random) {
+  constructor(randomFn: () => number = Math.random, config: GameConfig = CLASSIC_CONFIG) {
     this.randomFn = randomFn;
+    this.config = config;
     this.secretCode = this.generateCode();
     this.guesses = [];
     this.status = 'playing';
   }
 
   private generateCode(): Color[] {
-    return Array.from({ length: CODE_LENGTH }, () =>
-      COLORS[Math.floor(this.randomFn() * COLORS.length)]
+    return Array.from({ length: this.config.codeLength }, () =>
+      this.config.colors[Math.floor(this.randomFn() * this.config.colors.length)]
     );
   }
 
@@ -23,11 +25,12 @@ export class GameModel {
     let blacks = 0;
     let whites = 0;
 
+    const len = guess.length;
     const secretRemaining: (Color | null)[] = [...secret];
     const guessRemaining: (Color | null)[] = [...guess];
 
     // First pass: count exact matches (blacks)
-    for (let i = 0; i < CODE_LENGTH; i++) {
+    for (let i = 0; i < len; i++) {
       if (guess[i] === secret[i]) {
         blacks++;
         secretRemaining[i] = null;
@@ -36,7 +39,7 @@ export class GameModel {
     }
 
     // Second pass: count color matches in wrong position (whites)
-    for (let i = 0; i < CODE_LENGTH; i++) {
+    for (let i = 0; i < len; i++) {
       if (guessRemaining[i] === null) continue;
       const idx = secretRemaining.indexOf(guessRemaining[i] as Color);
       if (idx !== -1) {
@@ -52,16 +55,16 @@ export class GameModel {
     if (this.status !== 'playing') {
       throw new Error('Game is already over');
     }
-    if (guess.length !== CODE_LENGTH) {
-      throw new Error(`Guess must be exactly ${CODE_LENGTH} colors`);
+    if (guess.length !== this.config.codeLength) {
+      throw new Error(`Guess must be exactly ${this.config.codeLength} colors`);
     }
 
     const feedback = this.evaluateGuess(guess, this.secretCode);
     this.guesses.push({ guess: [...guess], feedback });
 
-    if (feedback.blacks === CODE_LENGTH) {
+    if (feedback.blacks === this.config.codeLength) {
       this.status = 'won';
-    } else if (this.guesses.length >= MAX_ATTEMPTS) {
+    } else if (this.guesses.length >= this.config.maxAttempts) {
       this.status = 'lost';
     }
 
