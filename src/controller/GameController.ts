@@ -1,14 +1,16 @@
 import { GameModel } from '../model/GameModel';
 import { GameView } from '../view/GameView';
-import { Color, CODE_LENGTH } from '../types';
+import { Color, CLASSIC_CONFIG, GameConfig } from '../types';
 
 export class GameController {
   private model: GameModel;
   private view: GameView;
+  private config: GameConfig;
 
-  constructor(model: GameModel, view: GameView) {
+  constructor(model: GameModel, view: GameView, config: GameConfig = CLASSIC_CONFIG) {
     this.model = model;
     this.view = view;
+    this.config = config;
   }
 
   init(): void {
@@ -18,7 +20,7 @@ export class GameController {
   }
 
   private handleGuess(guess: Color[]): void {
-    if (guess.length !== CODE_LENGTH) {
+    if (guess.length !== this.config.codeLength) {
       return;
     }
     try {
