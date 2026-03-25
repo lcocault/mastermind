@@ -255,8 +255,21 @@ describe('GameView', () => {
       });
       superView.render(state);
       const feedbackContainers = superRoot.querySelectorAll('.feedback-container');
-      // The first row (past guess) should have the inline class
-      expect(feedbackContainers[0].classList.contains('feedback-inline')).toBe(true);
+      // All rows (past guess, active row, empty rows) must use the inline class so
+      // the 5 feedback pegs are horizontally aligned in a single row.
+      feedbackContainers.forEach(container => {
+        expect(container.classList.contains('feedback-inline')).toBe(true);
+      });
+    });
+
+    it('uses inline feedback layout for all rows on initial render', () => {
+      superView.render(makeState());
+      const feedbackContainers = superRoot.querySelectorAll('.feedback-container');
+      // 10 rows total: 1 active + 9 empty – all must display feedback pegs inline
+      expect(feedbackContainers.length).toBe(10);
+      feedbackContainers.forEach(container => {
+        expect(container.classList.contains('feedback-inline')).toBe(true);
+      });
     });
 
     it('shows switch-to-classic button in super mode', () => {
