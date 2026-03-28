@@ -8,11 +8,14 @@ export const MAX_ATTEMPTS = 10;
 
 export type GameMode = 'classic' | 'super';
 
+export type Language = 'en' | 'fr';
+
 export interface GameConfig {
   mode: GameMode;
   colors: Color[];
   codeLength: number;
   maxAttempts: number;
+  language?: Language;
 }
 
 export const CLASSIC_CONFIG: GameConfig = {

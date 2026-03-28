@@ -1,17 +1,21 @@
 import { Color, CLASSIC_CONFIG, GameConfig, GameState, Feedback } from '../types';
+import { Labels, getLabels } from '../i18n';
 
 export class GameView {
   private root: HTMLElement;
   private config: GameConfig;
+  private labels: Labels;
   private selectedColors: (Color | null)[];
   private guessSubmitCallback: ((guess: Color[]) => void) | null = null;
   private newGameCallback: (() => void) | null = null;
   private modeSwitchCallback: (() => void) | null = null;
+  private languageSwitchCallback: (() => void) | null = null;
   private positionedRows: Set<number> = new Set();
 
   constructor(root: HTMLElement, config: GameConfig = CLASSIC_CONFIG) {
     this.root = root;
     this.config = config;
+    this.labels = getLabels(config.language);
     this.selectedColors = Array(config.codeLength).fill(null);
   }
 
@@ -27,6 +31,10 @@ export class GameView {
     this.modeSwitchCallback = callback;
   }
 
+  onLanguageSwitch(callback: () => void): void {
+    this.languageSwitchCallback = callback;
+  }
+
   render(state: GameState): void {
     // Clear per-row positioned state at the start of a new game
     if (state.guesses.length === 0) {
@@ -40,7 +48,7 @@ export class GameView {
 
     const title = document.createElement('h1');
     title.className = 'title';
-    title.textContent = this.config.mode === 'super' ? 'Super Mastermind' : 'Mastermind';
+    title.textContent = this.config.mode === 'super' ? this.labels.superTitle : this.labels.title;
     container.appendChild(title);
 
     // Status message
@@ -48,9 +56,9 @@ export class GameView {
       const msg = document.createElement('div');
       msg.className = `status-message status-${state.status}`;
       if (state.status === 'won') {
-        msg.textContent = '🎉 You won! Congratulations!';
+        msg.textContent = this.labels.wonMessage;
       } else {
-        msg.textContent = `😞 Game over! The code was: ${state.secretCode!.join(', ')}`;
+        msg.textContent = this.labels.lostMessage(state.secretCode!.join(', '));
       }
       container.appendChild(msg);
     }
@@ -60,8 +68,8 @@ export class GameView {
     info.className = 'info-bar';
     const attemptsLeft = this.config.maxAttempts - state.guesses.length;
     info.textContent = state.status === 'playing'
-      ? `Attempts remaining: ${attemptsLeft}`
-      : `Total guesses: ${state.guesses.length}`;
+      ? this.labels.attemptsRemaining(attemptsLeft)
+      : this.labels.totalGuesses(state.guesses.length);
     container.appendChild(info);
 
     // Board
@@ -96,7 +104,7 @@ export class GameView {
       secretContainer.className = 'secret-container';
       const secretLabel = document.createElement('span');
       secretLabel.className = 'secret-label';
-      secretLabel.textContent = 'Secret Code: ';
+      secretLabel.textContent = this.labels.secretCodeLabel;
       secretContainer.appendChild(secretLabel);
       state.secretCode.forEach(color => {
         const peg = document.createElement('span');
@@ -115,7 +123,7 @@ export class GameView {
     // New game button
     const newGameBtn = document.createElement('button');
     newGameBtn.className = 'btn btn-new-game';
-    newGameBtn.textContent = 'New Game';
+    newGameBtn.textContent = this.labels.newGame;
     newGameBtn.addEventListener('click', () => {
       if (this.newGameCallback) this.newGameCallback();
     });
@@ -125,12 +133,21 @@ export class GameView {
     const modeBtn = document.createElement('button');
     modeBtn.className = 'btn btn-mode';
     modeBtn.textContent = this.config.mode === 'classic'
-      ? 'Switch to Super Mastermind'
-      : 'Switch to Classic Mastermind';
+      ? this.labels.switchToSuper
+      : this.labels.switchToClassic;
     modeBtn.addEventListener('click', () => {
       if (this.modeSwitchCallback) this.modeSwitchCallback();
     });
     container.appendChild(modeBtn);
+
+    // Language switch button
+    const langBtn = document.createElement('button');
+    langBtn.className = 'btn btn-language';
+    langBtn.textContent = this.labels.switchLanguage;
+    langBtn.addEventListener('click', () => {
+      if (this.languageSwitchCallback) this.languageSwitchCallback();
+    });
+    container.appendChild(langBtn);
 
     this.root.appendChild(container);
   }
@@ -193,7 +210,7 @@ export class GameView {
     const updateToggle = () => {
       const positioned = this.positionedRows.has(rowIndex);
       toggleBtn.className = `btn-positioned-clues${positioned ? ' active' : ''}`;
-      toggleBtn.title = positioned ? 'Show grouped clues' : 'Show positioned clues';
+      toggleBtn.title = positioned ? this.labels.showGroupedClues : this.labels.showPositionedClues;
     };
     toggleBtn.textContent = '📍';
     toggleBtn.addEventListener('click', () => {
@@ -276,7 +293,7 @@ export class GameView {
 
     const label = document.createElement('p');
     label.className = 'palette-label';
-    label.textContent = 'Select colors for your guess:';
+    label.textContent = this.labels.paletteLabel;
     palette.appendChild(label);
 
     const colorsContainer = document.createElement('div');
@@ -298,7 +315,7 @@ export class GameView {
   private createSubmitButton(): HTMLElement {
     const btn = document.createElement('button');
     btn.className = 'btn btn-submit';
-    btn.textContent = 'Submit Guess';
+    btn.textContent = this.labels.submitGuess;
     btn.addEventListener('click', () => this.submitGuess());
     return btn;
   }
@@ -336,7 +353,7 @@ export class GameView {
 
   private submitGuess(): void {
     if (this.selectedColors.includes(null)) {
-      alert(`Please select all ${this.config.codeLength} colors before submitting.`);
+      alert(this.labels.incompleteSelection(this.config.codeLength));
       return;
     }
     if (this.guessSubmitCallback) {

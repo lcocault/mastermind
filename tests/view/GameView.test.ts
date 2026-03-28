@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import { GameView } from '../../src/view/GameView';
-import { GameState, Color, SUPER_CONFIG, CLASSIC_CONFIG } from '../../src/types';
+import { GameState, Color, SUPER_CONFIG, CLASSIC_CONFIG, GameConfig } from '../../src/types';
 
 function makeState(overrides: Partial<GameState> = {}): GameState {
   return {
@@ -436,6 +436,113 @@ describe('GameView', () => {
       expect(row1Pegs[0].classList.contains('feedback-black')).toBe(true);
       expect(row1Pegs[1].classList.contains('feedback-black')).toBe(true);
       expect(row1Pegs[2].classList.contains('feedback-empty')).toBe(true);
+    });
+  });
+
+  describe('French language', () => {
+    const FR_CONFIG: GameConfig = { ...CLASSIC_CONFIG, language: 'fr' };
+    let frRoot: HTMLElement;
+    let frView: GameView;
+
+    beforeEach(() => {
+      frRoot = document.createElement('div');
+      document.body.appendChild(frRoot);
+      frView = new GameView(frRoot, FR_CONFIG);
+    });
+
+    afterEach(() => {
+      document.body.removeChild(frRoot);
+    });
+
+    it('shows French win message', () => {
+      frView.render(makeState({ status: 'won', secretCode: ['red', 'blue', 'green', 'yellow'] }));
+      const msg = frRoot.querySelector('.status-won');
+      expect(msg!.textContent).toContain('gagné');
+    });
+
+    it('shows French loss message', () => {
+      frView.render(makeState({ status: 'lost', secretCode: ['red', 'blue', 'green', 'yellow'] }));
+      const msg = frRoot.querySelector('.status-lost');
+      expect(msg!.textContent).toContain('Partie terminée');
+    });
+
+    it('shows French attempts remaining text', () => {
+      frView.render(makeState());
+      const info = frRoot.querySelector('.info-bar');
+      expect(info!.textContent).toContain('Essais restants');
+    });
+
+    it('shows French total guesses text when game is over', () => {
+      frView.render(makeState({
+        status: 'won',
+        guesses: [{ guess: ['red', 'blue', 'green', 'yellow'], feedback: { blacks: 4, whites: 0 } }],
+        secretCode: ['red', 'blue', 'green', 'yellow'],
+      }));
+      const info = frRoot.querySelector('.info-bar');
+      expect(info!.textContent).toContain('Total des essais');
+    });
+
+    it('shows French new game button', () => {
+      frView.render(makeState());
+      const btn = frRoot.querySelector('.btn-new-game');
+      expect(btn!.textContent).toBe('Nouvelle partie');
+    });
+
+    it('shows French mode switch button in classic mode', () => {
+      frView.render(makeState());
+      const btn = frRoot.querySelector('.btn-mode');
+      expect(btn!.textContent).toContain('Super Mastermind');
+    });
+
+    it('shows French palette label', () => {
+      frView.render(makeState());
+      const label = frRoot.querySelector('.palette-label');
+      expect(label!.textContent).toContain('Sélectionnez');
+    });
+
+    it('shows French submit button', () => {
+      frView.render(makeState());
+      const btn = frRoot.querySelector('.btn-submit');
+      expect(btn!.textContent).toBe('Valider');
+    });
+
+    it('shows French secret code label when game is over', () => {
+      frView.render(makeState({ status: 'lost', secretCode: ['red', 'blue', 'green', 'yellow'] }));
+      const label = frRoot.querySelector('.secret-label');
+      expect(label!.textContent).toContain('Code secret');
+    });
+
+    it('shows language switch button labeled "English" in French mode', () => {
+      frView.render(makeState());
+      const btn = frRoot.querySelector('.btn-language');
+      expect(btn!.textContent).toBe('English');
+    });
+
+    it('shows language switch button labeled "Français" in English mode', () => {
+      view.render(makeState());
+      const btn = root.querySelector('.btn-language');
+      expect(btn!.textContent).toBe('Français');
+    });
+
+    it('triggers language switch callback when language button is clicked', () => {
+      const callback = jest.fn();
+      frView.onLanguageSwitch(callback);
+      frView.render(makeState());
+      frRoot.querySelector<HTMLElement>('.btn-language')!.click();
+      expect(callback).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows French positioned clues toggle tooltip', () => {
+      const state = makeState({
+        guesses: [
+          { guess: ['red', 'blue', 'green', 'yellow'], feedback: { blacks: 1, whites: 0, positions: ['black', 'miss', 'miss', 'miss'] } },
+        ],
+      });
+      frView.render(state);
+      const toggleBtn = frRoot.querySelector<HTMLElement>('[data-row="0"] .btn-positioned-clues')!;
+      expect(toggleBtn.title).toContain('Afficher les indices positionnés');
+      toggleBtn.click();
+      expect(toggleBtn.title).toContain('Afficher les indices groupés');
     });
   });
 });
