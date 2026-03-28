@@ -86,9 +86,7 @@ export class GameModel {
     }
 
     const feedback = this.evaluateGuess(guess, this.secretCode);
-    if (this.config.positionedClues) {
-      feedback.positions = this.computePositions(guess, this.secretCode);
-    }
+    feedback.positions = this.computePositions(guess, this.secretCode);
     this.guesses.push({ guess: [...guess], feedback });
 
     if (feedback.blacks === this.config.codeLength) {

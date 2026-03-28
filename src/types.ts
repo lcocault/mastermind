@@ -13,7 +13,6 @@ export interface GameConfig {
   colors: Color[];
   codeLength: number;
   maxAttempts: number;
-  positionedClues?: boolean;
 }
 
 export const CLASSIC_CONFIG: GameConfig = {
@@ -33,7 +32,7 @@ export const SUPER_CONFIG: GameConfig = {
 export interface Feedback {
   blacks: number; // correct color, correct position
   whites: number; // correct color, wrong position
-  positions?: ('black' | 'white' | 'miss')[]; // per-position result (when positionedClues is enabled)
+  positions?: ('black' | 'white' | 'miss')[]; // per-position result (always present in feedback from GameModel.makeGuess)
 }
 
 export interface GuessRecord {

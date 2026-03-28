@@ -13,11 +13,7 @@ function startGame(config: GameConfig): void {
 
   view.onModeSwitch(() => {
     const newConfig = config.mode === 'classic' ? SUPER_CONFIG : CLASSIC_CONFIG;
-    startGame({ ...newConfig, positionedClues: config.positionedClues });
-  });
-
-  view.onPositionedCluesToggle((enabled: boolean) => {
-    startGame({ ...config, positionedClues: enabled });
+    startGame(newConfig);
   });
 
   controller.init();

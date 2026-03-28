@@ -7,7 +7,7 @@ export class GameView {
   private guessSubmitCallback: ((guess: Color[]) => void) | null = null;
   private newGameCallback: (() => void) | null = null;
   private modeSwitchCallback: (() => void) | null = null;
-  private positionedCluesCallback: ((enabled: boolean) => void) | null = null;
+  private positionedRows: Set<number> = new Set();
 
   constructor(root: HTMLElement, config: GameConfig = CLASSIC_CONFIG) {
     this.root = root;
@@ -27,11 +27,11 @@ export class GameView {
     this.modeSwitchCallback = callback;
   }
 
-  onPositionedCluesToggle(callback: (enabled: boolean) => void): void {
-    this.positionedCluesCallback = callback;
-  }
-
   render(state: GameState): void {
+    // Clear per-row positioned state at the start of a new game
+    if (state.guesses.length === 0) {
+      this.positionedRows.clear();
+    }
     this.selectedColors = Array(this.config.codeLength).fill(null);
     this.root.innerHTML = '';
 
@@ -70,7 +70,7 @@ export class GameView {
 
     // Past guesses (oldest first, newest last)
     for (let i = 0; i < state.guesses.length; i++) {
-      const row = this.createGuessRow(state.guesses[i].guess, state.guesses[i].feedback);
+      const row = this.createGuessRow(state.guesses[i].guess, state.guesses[i].feedback, i);
       row.dataset.row = String(i);
       board.appendChild(row);
     }
@@ -112,25 +112,6 @@ export class GameView {
       container.appendChild(this.createSubmitButton());
     }
 
-    // Positioned clues toggle
-    const optionRow = document.createElement('div');
-    optionRow.className = 'option-row';
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.id = 'positioned-clues-checkbox';
-    checkbox.className = 'option-checkbox';
-    checkbox.checked = !!this.config.positionedClues;
-    checkbox.addEventListener('change', () => {
-      if (this.positionedCluesCallback) this.positionedCluesCallback(checkbox.checked);
-    });
-    const label = document.createElement('label');
-    label.htmlFor = 'positioned-clues-checkbox';
-    label.className = 'option-label';
-    label.textContent = 'Positioned clues (easier)';
-    optionRow.appendChild(checkbox);
-    optionRow.appendChild(label);
-    container.appendChild(optionRow);
-
     // New game button
     const newGameBtn = document.createElement('button');
     newGameBtn.className = 'btn btn-new-game';
@@ -154,7 +135,7 @@ export class GameView {
     this.root.appendChild(container);
   }
 
-  private createGuessRow(guess: Color[], feedback: Feedback): HTMLElement {
+  private createGuessRow(guess: Color[], feedback: Feedback, rowIndex: number): HTMLElement {
     const row = document.createElement('div');
     row.className = 'guess-row';
 
@@ -167,41 +148,67 @@ export class GameView {
     });
     row.appendChild(pegsContainer);
 
-    const feedbackContainer = document.createElement('div');
-    feedbackContainer.className = this.config.mode === 'super'
-      ? 'feedback-container feedback-inline'
-      : 'feedback-container';
+    const buildFeedbackContainer = (positioned: boolean): HTMLElement => {
+      const fc = document.createElement('div');
+      fc.className = this.config.mode === 'super'
+        ? 'feedback-container feedback-inline'
+        : 'feedback-container';
 
-    if (this.config.positionedClues && feedback.positions) {
-      // `positions` is always the same length as `guess` (guaranteed by GameModel.makeGuess)
-      for (const result of feedback.positions) {
-        const fp = document.createElement('span');
-        fp.className = result === 'miss'
-          ? 'feedback-peg feedback-empty'
-          : `feedback-peg feedback-${result}`;
-        feedbackContainer.appendChild(fp);
+      if (positioned && feedback.positions) {
+        // `positions` is always the same length as `guess` (guaranteed by GameModel.makeGuess)
+        for (const result of feedback.positions) {
+          const fp = document.createElement('span');
+          fp.className = result === 'miss'
+            ? 'feedback-peg feedback-empty'
+            : `feedback-peg feedback-${result}`;
+          fc.appendChild(fp);
+        }
+      } else {
+        // Classic rendering: blacks first, then whites, then empty
+        for (let i = 0; i < feedback.blacks; i++) {
+          const fp = document.createElement('span');
+          fp.className = 'feedback-peg feedback-black';
+          fc.appendChild(fp);
+        }
+        for (let i = 0; i < feedback.whites; i++) {
+          const fp = document.createElement('span');
+          fp.className = 'feedback-peg feedback-white';
+          fc.appendChild(fp);
+        }
+        const empty = this.config.codeLength - feedback.blacks - feedback.whites;
+        for (let i = 0; i < empty; i++) {
+          const fp = document.createElement('span');
+          fp.className = 'feedback-peg feedback-empty';
+          fc.appendChild(fp);
+        }
       }
-    } else {
-      // Classic rendering: blacks first, then whites, then empty
-      for (let i = 0; i < feedback.blacks; i++) {
-        const fp = document.createElement('span');
-        fp.className = 'feedback-peg feedback-black';
-        feedbackContainer.appendChild(fp);
-      }
-      for (let i = 0; i < feedback.whites; i++) {
-        const fp = document.createElement('span');
-        fp.className = 'feedback-peg feedback-white';
-        feedbackContainer.appendChild(fp);
-      }
-      const empty = this.config.codeLength - feedback.blacks - feedback.whites;
-      for (let i = 0; i < empty; i++) {
-        const fp = document.createElement('span');
-        fp.className = 'feedback-peg feedback-empty';
-        feedbackContainer.appendChild(fp);
-      }
-    }
+      return fc;
+    };
 
-    row.appendChild(feedbackContainer);
+    let currentFeedbackContainer = buildFeedbackContainer(this.positionedRows.has(rowIndex));
+    row.appendChild(currentFeedbackContainer);
+
+    // Per-row toggle button for positioned clues
+    const toggleBtn = document.createElement('button');
+    const updateToggle = () => {
+      const positioned = this.positionedRows.has(rowIndex);
+      toggleBtn.className = `btn-positioned-clues${positioned ? ' active' : ''}`;
+      toggleBtn.title = positioned ? 'Show grouped clues' : 'Show positioned clues';
+    };
+    toggleBtn.textContent = '📍';
+    toggleBtn.addEventListener('click', () => {
+      if (this.positionedRows.has(rowIndex)) {
+        this.positionedRows.delete(rowIndex);
+      } else {
+        this.positionedRows.add(rowIndex);
+      }
+      updateToggle();
+      const newFeedback = buildFeedbackContainer(this.positionedRows.has(rowIndex));
+      currentFeedbackContainer.replaceWith(newFeedback);
+      currentFeedbackContainer = newFeedback;
+    });
+    updateToggle();
+    row.appendChild(toggleBtn);
 
     return row;
   }
