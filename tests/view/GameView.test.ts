@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import { GameView } from '../../src/view/GameView';
-import { GameState, Color, SUPER_CONFIG } from '../../src/types';
+import { GameState, Color, SUPER_CONFIG, CLASSIC_CONFIG } from '../../src/types';
 
 function makeState(overrides: Partial<GameState> = {}): GameState {
   return {
@@ -302,6 +302,140 @@ describe('GameView', () => {
       });
       superRoot.querySelector<HTMLElement>('.btn-submit')!.click();
       expect(callback).toHaveBeenCalledWith(['red', 'blue', 'green', 'yellow', 'orange']);
+    });
+  });
+
+  describe('positioned clues per-row toggle', () => {
+    let posRoot: HTMLElement;
+    let posView: GameView;
+
+    beforeEach(() => {
+      posRoot = document.createElement('div');
+      document.body.appendChild(posRoot);
+      posView = new GameView(posRoot, CLASSIC_CONFIG);
+    });
+
+    afterEach(() => {
+      document.body.removeChild(posRoot);
+    });
+
+    it('renders a positioned-clues toggle button on each guess row', () => {
+      const state = makeState({
+        guesses: [
+          { guess: ['red', 'blue', 'green', 'yellow'], feedback: { blacks: 1, whites: 2, positions: ['black', 'miss', 'white', 'white'] } },
+        ],
+      });
+      posView.render(state);
+      const toggleBtn = posRoot.querySelector('[data-row="0"] .btn-positioned-clues');
+      expect(toggleBtn).not.toBeNull();
+    });
+
+    it('shows classic grouped rendering by default (blacks before whites)', () => {
+      const state = makeState({
+        guesses: [
+          { guess: ['red', 'blue', 'green', 'yellow'], feedback: { blacks: 2, whites: 1, positions: ['black', 'black', 'white', 'miss'] } },
+        ],
+      });
+      posView.render(state);
+      const guessRow = posRoot.querySelector('[data-row="0"]')!;
+      const feedbackPegs = guessRow.querySelectorAll('.feedback-peg');
+      // Classic: 2 blacks grouped first, then 1 white, then 1 empty
+      expect(feedbackPegs[0].classList.contains('feedback-black')).toBe(true);
+      expect(feedbackPegs[1].classList.contains('feedback-black')).toBe(true);
+      expect(feedbackPegs[2].classList.contains('feedback-white')).toBe(true);
+      expect(feedbackPegs[3].classList.contains('feedback-empty')).toBe(true);
+    });
+
+    it('renders feedback pegs in positioned order after toggle is clicked', () => {
+      const state = makeState({
+        guesses: [
+          {
+            guess: ['red', 'blue', 'green', 'yellow'],
+            feedback: {
+              blacks: 1,
+              whites: 1,
+              positions: ['black', 'miss', 'white', 'miss'],
+            },
+          },
+        ],
+      });
+      posView.render(state);
+      const guessRow = posRoot.querySelector('[data-row="0"]')!;
+
+      // Click the toggle to enable positioned clues for this row
+      const toggleBtn = guessRow.querySelector<HTMLElement>('.btn-positioned-clues')!;
+      toggleBtn.click();
+
+      const feedbackPegs = guessRow.querySelectorAll('.feedback-peg');
+      expect(feedbackPegs[0].classList.contains('feedback-black')).toBe(true);
+      expect(feedbackPegs[1].classList.contains('feedback-empty')).toBe(true);
+      expect(feedbackPegs[2].classList.contains('feedback-white')).toBe(true);
+      expect(feedbackPegs[3].classList.contains('feedback-empty')).toBe(true);
+    });
+
+    it('toggles back to classic grouped rendering on second click', () => {
+      const state = makeState({
+        guesses: [
+          {
+            guess: ['red', 'blue', 'green', 'yellow'],
+            feedback: {
+              blacks: 2,
+              whites: 1,
+              positions: ['black', 'black', 'white', 'miss'],
+            },
+          },
+        ],
+      });
+      posView.render(state);
+      const guessRow = posRoot.querySelector('[data-row="0"]')!;
+      const toggleBtn = guessRow.querySelector<HTMLElement>('.btn-positioned-clues')!;
+
+      toggleBtn.click(); // enable positioned
+      toggleBtn.click(); // back to classic
+
+      const feedbackPegs = guessRow.querySelectorAll('.feedback-peg');
+      // Back to classic: blacks grouped first
+      expect(feedbackPegs[0].classList.contains('feedback-black')).toBe(true);
+      expect(feedbackPegs[1].classList.contains('feedback-black')).toBe(true);
+      expect(feedbackPegs[2].classList.contains('feedback-white')).toBe(true);
+    });
+
+    it('toggle button gets active class when positioned clues are shown', () => {
+      const state = makeState({
+        guesses: [
+          { guess: ['red', 'blue', 'green', 'yellow'], feedback: { blacks: 1, whites: 0, positions: ['black', 'miss', 'miss', 'miss'] } },
+        ],
+      });
+      posView.render(state);
+      const toggleBtn = posRoot.querySelector<HTMLElement>('[data-row="0"] .btn-positioned-clues')!;
+
+      expect(toggleBtn.classList.contains('active')).toBe(false);
+      toggleBtn.click();
+      expect(toggleBtn.classList.contains('active')).toBe(true);
+    });
+
+    it('toggling one row does not affect other rows', () => {
+      const state = makeState({
+        guesses: [
+          { guess: ['red', 'blue', 'green', 'yellow'], feedback: { blacks: 1, whites: 0, positions: ['black', 'miss', 'miss', 'miss'] } },
+          { guess: ['red', 'blue', 'green', 'yellow'], feedback: { blacks: 2, whites: 0, positions: ['black', 'black', 'miss', 'miss'] } },
+        ],
+      });
+      posView.render(state);
+
+      // Toggle row 0 only
+      posRoot.querySelector<HTMLElement>('[data-row="0"] .btn-positioned-clues')!.click();
+
+      // Row 0 should show positioned (black at position 0, empty at 1-3)
+      const row0Pegs = posRoot.querySelectorAll('[data-row="0"] .feedback-peg');
+      expect(row0Pegs[0].classList.contains('feedback-black')).toBe(true);
+      expect(row0Pegs[1].classList.contains('feedback-empty')).toBe(true);
+
+      // Row 1 should still show classic (blacks grouped first)
+      const row1Pegs = posRoot.querySelectorAll('[data-row="1"] .feedback-peg');
+      expect(row1Pegs[0].classList.contains('feedback-black')).toBe(true);
+      expect(row1Pegs[1].classList.contains('feedback-black')).toBe(true);
+      expect(row1Pegs[2].classList.contains('feedback-empty')).toBe(true);
     });
   });
 });

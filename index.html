@@ -150,6 +150,21 @@
     .btn-new-game { background: linear-gradient(135deg, #2ed573, #27ae60); color: #fff; }
     .btn-mode { background: linear-gradient(135deg, #a29bfe, #6c5ce7); color: #fff; }
 
+    /* Per-row positioned clues toggle */
+    .btn-positioned-clues {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 2px 6px;
+      color: #aaa;
+      flex-shrink: 0;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-positioned-clues:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+    .btn-positioned-clues.active { border-color: #a29bfe; color: #a29bfe; }
+
     /* Secret code */
     .secret-container {
       display: flex; align-items: center; justify-content: center;

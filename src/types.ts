@@ -32,6 +32,7 @@ export const SUPER_CONFIG: GameConfig = {
 export interface Feedback {
   blacks: number; // correct color, correct position
   whites: number; // correct color, wrong position
+  positions?: ('black' | 'white' | 'miss')[]; // per-position result (always present in feedback from GameModel.makeGuess)
 }
 
 export interface GuessRecord {
