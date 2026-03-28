@@ -51,6 +51,32 @@ export class GameModel {
     return { blacks, whites };
   }
 
+  private computePositions(guess: Color[], secret: Color[]): ('black' | 'white' | 'miss')[] {
+    const len = guess.length;
+    const positions: ('black' | 'white' | 'miss')[] = new Array(len).fill('miss');
+    const secretRemaining: (Color | null)[] = [...secret];
+
+    // First pass: mark exact matches (black)
+    for (let i = 0; i < len; i++) {
+      if (guess[i] === secret[i]) {
+        positions[i] = 'black';
+        secretRemaining[i] = null;
+      }
+    }
+
+    // Second pass: mark color matches in wrong position (white)
+    for (let i = 0; i < len; i++) {
+      if (positions[i] === 'black') continue;
+      const idx = secretRemaining.indexOf(guess[i]);
+      if (idx !== -1) {
+        positions[i] = 'white';
+        secretRemaining[idx] = null;
+      }
+    }
+
+    return positions;
+  }
+
   makeGuess(guess: Color[]): Feedback {
     if (this.status !== 'playing') {
       throw new Error('Game is already over');
@@ -60,6 +86,9 @@ export class GameModel {
     }
 
     const feedback = this.evaluateGuess(guess, this.secretCode);
+    if (this.config.positionedClues) {
+      feedback.positions = this.computePositions(guess, this.secretCode);
+    }
     this.guesses.push({ guess: [...guess], feedback });
 
     if (feedback.blacks === this.config.codeLength) {
@@ -75,7 +104,14 @@ export class GameModel {
     const isOver = this.status !== 'playing';
     return {
       status: this.status,
-      guesses: this.guesses.map(g => ({ guess: [...g.guess], feedback: { ...g.feedback } })),
+      guesses: this.guesses.map(g => ({
+        guess: [...g.guess],
+        feedback: {
+          blacks: g.feedback.blacks,
+          whites: g.feedback.whites,
+          ...(g.feedback.positions ? { positions: [...g.feedback.positions] } : {}),
+        },
+      })),
       secretCode: isOver ? [...this.secretCode] : null,
     };
   }

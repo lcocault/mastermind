@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import { GameView } from '../../src/view/GameView';
-import { GameState, Color, SUPER_CONFIG } from '../../src/types';
+import { GameState, Color, SUPER_CONFIG, CLASSIC_CONFIG } from '../../src/types';
 
 function makeState(overrides: Partial<GameState> = {}): GameState {
   return {
@@ -302,6 +302,85 @@ describe('GameView', () => {
       });
       superRoot.querySelector<HTMLElement>('.btn-submit')!.click();
       expect(callback).toHaveBeenCalledWith(['red', 'blue', 'green', 'yellow', 'orange']);
+    });
+  });
+
+  describe('positioned clues option', () => {
+    let posRoot: HTMLElement;
+    let posView: GameView;
+
+    beforeEach(() => {
+      posRoot = document.createElement('div');
+      document.body.appendChild(posRoot);
+      posView = new GameView(posRoot, { ...CLASSIC_CONFIG, positionedClues: true });
+    });
+
+    afterEach(() => {
+      document.body.removeChild(posRoot);
+    });
+
+    it('renders a positioned-clues checkbox that is checked when option is enabled', () => {
+      posView.render(makeState());
+      const checkbox = posRoot.querySelector<HTMLInputElement>('#positioned-clues-checkbox');
+      expect(checkbox).not.toBeNull();
+      expect(checkbox!.checked).toBe(true);
+    });
+
+    it('renders a positioned-clues checkbox unchecked when option is disabled', () => {
+      const uncheckedView = new GameView(posRoot, CLASSIC_CONFIG);
+      uncheckedView.render(makeState());
+      const checkbox = posRoot.querySelector<HTMLInputElement>('#positioned-clues-checkbox');
+      expect(checkbox).not.toBeNull();
+      expect(checkbox!.checked).toBe(false);
+    });
+
+    it('fires onPositionedCluesToggle callback when checkbox is changed', () => {
+      const callback = jest.fn();
+      posView.onPositionedCluesToggle(callback);
+      posView.render(makeState());
+      const checkbox = posRoot.querySelector<HTMLInputElement>('#positioned-clues-checkbox');
+      checkbox!.checked = false;
+      checkbox!.dispatchEvent(new Event('change'));
+      expect(callback).toHaveBeenCalledWith(false);
+    });
+
+    it('renders feedback pegs in positioned order when positionedClues is true', () => {
+      const state = makeState({
+        guesses: [
+          {
+            guess: ['red', 'blue', 'green', 'yellow'],
+            feedback: {
+              blacks: 1,
+              whites: 1,
+              positions: ['black', 'miss', 'white', 'miss'],
+            },
+          },
+        ],
+      });
+      posView.render(state);
+      const guessRow = posRoot.querySelector('[data-row="0"]')!;
+      const feedbackPegs = guessRow.querySelectorAll('.feedback-peg');
+      expect(feedbackPegs[0].classList.contains('feedback-black')).toBe(true);
+      expect(feedbackPegs[1].classList.contains('feedback-empty')).toBe(true);
+      expect(feedbackPegs[2].classList.contains('feedback-white')).toBe(true);
+      expect(feedbackPegs[3].classList.contains('feedback-empty')).toBe(true);
+    });
+
+    it('falls back to classic rendering when positions are absent', () => {
+      const state = makeState({
+        guesses: [
+          {
+            guess: ['red', 'blue', 'green', 'yellow'],
+            feedback: { blacks: 2, whites: 1 },
+          },
+        ],
+      });
+      posView.render(state);
+      const guessRow = posRoot.querySelector('[data-row="0"]')!;
+      const blackPegs = guessRow.querySelectorAll('.feedback-black');
+      const whitePegs = guessRow.querySelectorAll('.feedback-white');
+      expect(blackPegs.length).toBe(2);
+      expect(whitePegs.length).toBe(1);
     });
   });
 });

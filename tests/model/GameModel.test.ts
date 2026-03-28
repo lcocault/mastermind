@@ -1,5 +1,5 @@
 import { GameModel } from '../../src/model/GameModel';
-import { Color, CODE_LENGTH, MAX_ATTEMPTS, SUPER_CONFIG } from '../../src/types';
+import { Color, CODE_LENGTH, MAX_ATTEMPTS, SUPER_CONFIG, CLASSIC_CONFIG } from '../../src/types';
 
 describe('GameModel', () => {
   describe('constructor', () => {
@@ -234,6 +234,74 @@ describe('GameModel', () => {
       const secret: Color[] = ['red', 'blue', 'green', 'yellow', 'orange'];
       const guess: Color[] = ['red', 'blue', 'green', 'yellow', 'orange'];
       expect(model.evaluateGuess(guess, secret)).toEqual({ blacks: 5, whites: 0 });
+    });
+  });
+
+  describe('positioned clues mode', () => {
+    it('includes positions in feedback when positionedClues is true', () => {
+      const config = { ...CLASSIC_CONFIG, positionedClues: true };
+      const model = new GameModel(() => 0, config); // secret: all red
+      const feedback = model.makeGuess(['red', 'blue', 'blue', 'blue']);
+      expect(feedback.positions).toEqual(['black', 'miss', 'miss', 'miss']);
+    });
+
+    it('does not include positions when positionedClues is false', () => {
+      const model = new GameModel(() => 0); // secret: all red
+      const feedback = model.makeGuess(['red', 'blue', 'blue', 'blue']);
+      expect(feedback.positions).toBeUndefined();
+    });
+
+    it('positions reflect exact matches and color-only matches', () => {
+      const config = { ...CLASSIC_CONFIG, positionedClues: true };
+      // Control the secret by providing a deterministic randomFn.
+      // Secret via index: red=0, blue=1, green=2, yellow=3
+      const secret: Color[] = ['red', 'blue', 'green', 'yellow'];
+      let idx = 0;
+      const colors = CLASSIC_CONFIG.colors;
+      const fixedModel = new GameModel(
+        () => colors.indexOf(secret[idx++]) / colors.length,
+        config,
+      );
+      // guess: ['red', 'green', 'blue', 'orange'] → black at 0, white at 1 and 2, miss at 3
+      const feedback = fixedModel.makeGuess(['red', 'green', 'blue', 'orange']);
+      expect(feedback.blacks).toBe(1);
+      expect(feedback.whites).toBe(2);
+      expect(feedback.positions).toEqual(['black', 'white', 'white', 'miss']);
+    });
+
+    it('positions stored in GuessRecord are deep copies', () => {
+      const config = { ...CLASSIC_CONFIG, positionedClues: true };
+      const model = new GameModel(() => 0, config); // secret: all red
+      model.makeGuess(['red', 'blue', 'blue', 'blue']);
+      const state = model.getState();
+      state.guesses[0].feedback.positions![0] = 'miss';
+      // Internal state must not be mutated
+      expect(model.getState().guesses[0].feedback.positions![0]).toBe('black');
+    });
+
+    it('all correct positions are black when all guessed correctly', () => {
+      const config = { ...CLASSIC_CONFIG, positionedClues: true };
+      const model = new GameModel(() => 0, config); // secret: all red
+      const feedback = model.makeGuess(['red', 'red', 'red', 'red']);
+      expect(feedback.positions).toEqual(['black', 'black', 'black', 'black']);
+    });
+
+    it('handles duplicate colors with positioned clues', () => {
+      const config = { ...CLASSIC_CONFIG, positionedClues: true };
+      // secret: ['red', 'blue', 'green', 'yellow'] via idx 0,1,2,3
+      const secret: Color[] = ['red', 'blue', 'green', 'yellow'];
+      let idx = 0;
+      const colors = CLASSIC_CONFIG.colors;
+      const model = new GameModel(
+        () => colors.indexOf(secret[idx++]) / colors.length,
+        config,
+      );
+      // guess: ['orange', 'red', 'red', 'purple'] → 0 blacks; only 1 white (one red in secret)
+      const feedback = model.makeGuess(['orange', 'red', 'red', 'purple']);
+      expect(feedback.blacks).toBe(0);
+      expect(feedback.whites).toBe(1);
+      // position 1 gets the white (first red found), position 2 is miss (no second red in secret)
+      expect(feedback.positions).toEqual(['miss', 'white', 'miss', 'miss']);
     });
   });
 });

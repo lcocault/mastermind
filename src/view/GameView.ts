@@ -1,4 +1,4 @@
-import { Color, CLASSIC_CONFIG, GameConfig, GameState } from '../types';
+import { Color, CLASSIC_CONFIG, GameConfig, GameState, Feedback } from '../types';
 
 export class GameView {
   private root: HTMLElement;
@@ -7,6 +7,7 @@ export class GameView {
   private guessSubmitCallback: ((guess: Color[]) => void) | null = null;
   private newGameCallback: (() => void) | null = null;
   private modeSwitchCallback: (() => void) | null = null;
+  private positionedCluesCallback: ((enabled: boolean) => void) | null = null;
 
   constructor(root: HTMLElement, config: GameConfig = CLASSIC_CONFIG) {
     this.root = root;
@@ -24,6 +25,10 @@ export class GameView {
 
   onModeSwitch(callback: () => void): void {
     this.modeSwitchCallback = callback;
+  }
+
+  onPositionedCluesToggle(callback: (enabled: boolean) => void): void {
+    this.positionedCluesCallback = callback;
   }
 
   render(state: GameState): void {
@@ -107,6 +112,25 @@ export class GameView {
       container.appendChild(this.createSubmitButton());
     }
 
+    // Positioned clues toggle
+    const optionRow = document.createElement('div');
+    optionRow.className = 'option-row';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = 'positioned-clues-checkbox';
+    checkbox.className = 'option-checkbox';
+    checkbox.checked = !!this.config.positionedClues;
+    checkbox.addEventListener('change', () => {
+      if (this.positionedCluesCallback) this.positionedCluesCallback(checkbox.checked);
+    });
+    const label = document.createElement('label');
+    label.htmlFor = 'positioned-clues-checkbox';
+    label.className = 'option-label';
+    label.textContent = 'Positioned clues (easier)';
+    optionRow.appendChild(checkbox);
+    optionRow.appendChild(label);
+    container.appendChild(optionRow);
+
     // New game button
     const newGameBtn = document.createElement('button');
     newGameBtn.className = 'btn btn-new-game';
@@ -130,7 +154,7 @@ export class GameView {
     this.root.appendChild(container);
   }
 
-  private createGuessRow(guess: Color[], feedback: { blacks: number; whites: number }): HTMLElement {
+  private createGuessRow(guess: Color[], feedback: Feedback): HTMLElement {
     const row = document.createElement('div');
     row.className = 'guess-row';
 
@@ -147,25 +171,36 @@ export class GameView {
     feedbackContainer.className = this.config.mode === 'super'
       ? 'feedback-container feedback-inline'
       : 'feedback-container';
-    // Black pegs first
-    for (let i = 0; i < feedback.blacks; i++) {
-      const fp = document.createElement('span');
-      fp.className = 'feedback-peg feedback-black';
-      feedbackContainer.appendChild(fp);
+
+    if (this.config.positionedClues && feedback.positions) {
+      // `positions` is always the same length as `guess` (guaranteed by GameModel.makeGuess)
+      for (const result of feedback.positions) {
+        const fp = document.createElement('span');
+        fp.className = result === 'miss'
+          ? 'feedback-peg feedback-empty'
+          : `feedback-peg feedback-${result}`;
+        feedbackContainer.appendChild(fp);
+      }
+    } else {
+      // Classic rendering: blacks first, then whites, then empty
+      for (let i = 0; i < feedback.blacks; i++) {
+        const fp = document.createElement('span');
+        fp.className = 'feedback-peg feedback-black';
+        feedbackContainer.appendChild(fp);
+      }
+      for (let i = 0; i < feedback.whites; i++) {
+        const fp = document.createElement('span');
+        fp.className = 'feedback-peg feedback-white';
+        feedbackContainer.appendChild(fp);
+      }
+      const empty = this.config.codeLength - feedback.blacks - feedback.whites;
+      for (let i = 0; i < empty; i++) {
+        const fp = document.createElement('span');
+        fp.className = 'feedback-peg feedback-empty';
+        feedbackContainer.appendChild(fp);
+      }
     }
-    // White pegs
-    for (let i = 0; i < feedback.whites; i++) {
-      const fp = document.createElement('span');
-      fp.className = 'feedback-peg feedback-white';
-      feedbackContainer.appendChild(fp);
-    }
-    // Empty pegs
-    const empty = this.config.codeLength - feedback.blacks - feedback.whites;
-    for (let i = 0; i < empty; i++) {
-      const fp = document.createElement('span');
-      fp.className = 'feedback-peg feedback-empty';
-      feedbackContainer.appendChild(fp);
-    }
+
     row.appendChild(feedbackContainer);
 
     return row;
